@@ -4,9 +4,10 @@ FROM python:3.11-slim
 # 更新系统和安装必要编译依赖
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libatlas-base-dev \
+    libatlas3-base \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
+
 
 # 升级 pip、setuptools、wheel
 RUN pip install --upgrade pip setuptools wheel
