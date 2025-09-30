@@ -1,9 +1,9 @@
-from flask import Flask, request, send_file, render_template
+from flask import Flask, request, send_file, after_this_request
 import pandas as pd
 import os
 import shutil
-import zipfile
 import tempfile
+import traceback
 
 app = Flask(__name__)
 
@@ -37,27 +37,45 @@ def upload_form():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    file = request.files['file']
-    if not file:
-        return "没有上传文件"
+    try:
+        file = request.files.get('file')
+        if not file:
+            return "没有上传文件"
 
-    # 创建临时目录
-    temp_dir = tempfile.mkdtemp()
+        # 创建临时目录
+        temp_dir = tempfile.mkdtemp()
 
-    # 读取 Excel
-    df = pd.read_excel(file)
+        # 读取 Excel
+        df = pd.read_excel(file)
 
-    # 遍历 Excel 第一列生成文件夹
-    for folder_name in df.iloc[:, 0]:
-        folder_path = os.path.join(temp_dir, str(folder_name))
-        os.makedirs(folder_path, exist_ok=True)
+        # 遍历 Excel 第一列生成文件夹
+        for folder_name in df.iloc[:, 0].dropna():
+            safe_name = str(folder_name).strip()
+            safe_name = "".join(c for c in safe_name if c.isalnum() or c in (" ", "_", "-"))
+            if not safe_name:
+                continue
+            os.makedirs(os.path.join(temp_dir, safe_name), exist_ok=True)
 
-    # 打包成 zip
-    zip_path = temp_dir + ".zip"
-    shutil.make_archive(temp_dir, 'zip', temp_dir)
+        # 打包成 zip
+        zip_path = shutil.make_archive(temp_dir, 'zip', temp_dir)
 
-    # 返回 zip 文件
-    return send_file(zip_path, as_attachment=True, download_name="folders.zip")
+        @after_this_request
+        def cleanup(response):
+            try:
+                if os.path.exists(zip_path):
+                    os.remove(zip_path)
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+            except Exception as e:
+                print("清理失败:", e)
+            return response
+
+        return send_file(zip_path, as_attachment=True, download_name="folders.zip")
+
+    except Exception as e:
+        traceback.print_exc()
+        return f"出错了: {e}"
+
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
