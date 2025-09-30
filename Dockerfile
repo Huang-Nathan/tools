@@ -11,7 +11,9 @@ WORKDIR /app
 COPY . /app
 
 RUN pip install --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
+RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    pandas==2.1.1 numpy==1.26.4 flask==2.3.6
+
 
 EXPOSE 5000
 CMD ["python", "folers.py"]
